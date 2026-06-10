@@ -70,9 +70,101 @@ void test_move_blocked_by_walls_and_floor(void) {
   printf("PASS test_move_blocked_by_walls_and_floor\n");
 }
 
+void test_rotate_basic_updates_rotation(void) {
+  board_t b;
+  board_init(&b);
+  piece_t p = piece_spawn(PIECE_T); // col=3,row=0,rotation=0
+
+  assert(piece_rotate(&b, &p, 1) == BRAIN_OK); // 0->R, no kick needed
+  assert(p.rotation == 1);
+  assert(p.col == 3 && p.row == 0);
+  assert(piece_is_valid(&b, &p));
+
+  printf("PASS test_rotate_basic_updates_rotation\n");
+}
+
+void test_jlstz_wall_kick(void) {
+  board_t b;
+  board_init(&b);
+  // T piece, R orientation, flush against the left wall.
+  piece_t p = {PIECE_T, -1, 0, 1};
+  assert(piece_is_valid(&b, &p));
+
+  // R->2: naive (0,0) kick puts a cell at col -1 (invalid).
+  // JLSTZ_KICKS[R->2] test2 = (+1,0) shifts the piece right by 1.
+  assert(piece_rotate(&b, &p, 1) == BRAIN_OK);
+  assert(p.rotation == 2);
+  assert(p.col == 0 && p.row == 0);
+  assert(piece_is_valid(&b, &p));
+
+  printf("PASS test_jlstz_wall_kick\n");
+}
+
+void test_i_piece_wall_kick(void) {
+  board_t b;
+  board_init(&b);
+  // I piece, L orientation (single column at col+1), flush against left wall.
+  piece_t p = {PIECE_I, -1, 0, 3};
+  assert(piece_is_valid(&b, &p));
+
+  // L->0: naive (0,0) kick puts a cell at col -1 (invalid).
+  // I_KICKS[L->0] test2 = (+1,0) shifts the piece right by 1.
+  assert(piece_rotate(&b, &p, 1) == BRAIN_OK);
+  assert(p.rotation == 0);
+  assert(p.col == 0 && p.row == 0);
+  assert(piece_is_valid(&b, &p));
+
+  printf("PASS test_i_piece_wall_kick\n");
+}
+
+void test_rotate_blocked_returns_blocked(void) {
+  board_t b;
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++)
+      board_set(&b, c, r, (cell_t){CELL_FILLED, 0});
+
+  // Carve out exactly the T spawn shape's 4 cells: (4,0)(3,1)(4,1)(5,1).
+  board_set(&b, 4, 0, (cell_t){CELL_EMPTY, 0});
+  board_set(&b, 3, 1, (cell_t){CELL_EMPTY, 0});
+  board_set(&b, 4, 1, (cell_t){CELL_EMPTY, 0});
+  board_set(&b, 5, 1, (cell_t){CELL_EMPTY, 0});
+
+  piece_t p = piece_spawn(PIECE_T); // col=3,row=0,rotation=0
+  assert(piece_is_valid(&b, &p));
+
+  piece_t before = p;
+  assert(piece_rotate(&b, &p, 1) == BRAIN_BLOCKED);
+  assert(p.type == before.type && p.col == before.col &&
+         p.row == before.row && p.rotation == before.rotation);
+
+  printf("PASS test_rotate_blocked_returns_blocked\n");
+}
+
+void test_o_piece_rotate_is_noop(void) {
+  board_t b;
+  board_init(&b);
+  piece_t p = piece_spawn(PIECE_O); // col=4,row=0,rotation=0
+
+  assert(piece_rotate(&b, &p, 1) == BRAIN_OK);
+  assert(p.rotation == 1);
+  assert(p.col == 4 && p.row == 0);
+  assert(piece_is_valid(&b, &p));
+
+  assert(piece_rotate(&b, &p, -1) == BRAIN_OK);
+  assert(p.rotation == 0);
+  assert(p.col == 4 && p.row == 0);
+
+  printf("PASS test_o_piece_rotate_is_noop\n");
+}
+
 int main(void) {
   test_spawn_all_types_valid();
   test_stamp_writes_cells();
   test_move_blocked_by_walls_and_floor();
+  test_rotate_basic_updates_rotation();
+  test_jlstz_wall_kick();
+  test_i_piece_wall_kick();
+  test_rotate_blocked_returns_blocked();
+  test_o_piece_rotate_is_noop();
   return 0;
 }

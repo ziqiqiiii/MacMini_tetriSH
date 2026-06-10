@@ -81,6 +81,64 @@ bool piece_is_valid(const board_t *b, const piece_t *p) {
   return true;
 }
 
+// Transition indices: 0=0->R 1=R->0 2=R->2 3=2->R 4=2->L 5=L->2 6=L->0 7=0->L
+// KICK_TRANSITION[from_rotation][dir_idx], dir_idx: 0=CW(+1), 1=CCW(-1).
+static const int8_t KICK_TRANSITION[4][2] = {
+    {0, 7}, // from 0
+    {2, 1}, // from R
+    {4, 3}, // from 2
+    {6, 5}, // from L
+};
+
+static const cell_offset_t JLSTZ_KICKS[8][5] = {
+    {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // 0->R
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},     // R->0
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},     // R->2
+    {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // 2->R
+    {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},      // 2->L
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},  // L->2
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},  // L->0
+    {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},      // 0->L
+};
+
+static const cell_offset_t I_KICKS[8][5] = {
+    {{0, 0}, {-2, 0}, {1, 0}, {-2, 1}, {1, -2}},    // 0->R
+    {{0, 0}, {2, 0}, {-1, 0}, {2, -1}, {-1, 2}},    // R->0
+    {{0, 0}, {-1, 0}, {2, 0}, {-1, -2}, {2, 1}},    // R->2
+    {{0, 0}, {1, 0}, {-2, 0}, {1, 2}, {-2, -1}},    // 2->R
+    {{0, 0}, {2, 0}, {-1, 0}, {2, -1}, {-1, 2}},    // 2->L
+    {{0, 0}, {-2, 0}, {1, 0}, {-2, 1}, {1, -2}},    // L->2
+    {{0, 0}, {1, 0}, {-2, 0}, {1, 2}, {-2, -1}},    // L->0
+    {{0, 0}, {-1, 0}, {2, 0}, {-1, -2}, {2, 1}},    // 0->L
+};
+
+brain_result_t piece_rotate(const board_t *b, piece_t *p, int dir) {
+  int to = (p->rotation + (dir == 1 ? 1 : 3)) % 4;
+
+  // O piece's shape is identical in every rotation state: if the current
+  // position is valid, it stays valid after relabeling the rotation.
+  if (p->type == PIECE_O) {
+    p->rotation = to;
+    return BRAIN_OK;
+  }
+
+  int transition = KICK_TRANSITION[p->rotation][dir == 1 ? 0 : 1];
+  const cell_offset_t *kicks =
+      (p->type == PIECE_I) ? I_KICKS[transition] : JLSTZ_KICKS[transition];
+
+  for (int i = 0; i < 5; i++) {
+    piece_t cand = *p;
+    cand.rotation = to;
+    cand.col += kicks[i].dcol;
+    cand.row += kicks[i].drow;
+    if (piece_is_valid(b, &cand)) {
+      *p = cand;
+      return BRAIN_OK;
+    }
+  }
+  return BRAIN_BLOCKED;
+}
+
 brain_result_t piece_move(const board_t *b, piece_t *p, int dcol, int drow) {
   piece_t moved = *p;
   moved.col += dcol;
