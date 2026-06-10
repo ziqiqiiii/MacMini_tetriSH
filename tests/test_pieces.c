@@ -44,8 +44,35 @@ void test_stamp_writes_cells(void) {
   printf("PASS test_stamp_writes_cells\n");
 }
 
+void test_move_blocked_by_walls_and_floor(void) {
+  board_t b;
+  board_init(&b);
+  piece_t p = piece_spawn(PIECE_I); // col=3,row=-1, occupies cols 3-6, row 0
+
+  for (int i = 0; i < 3; i++)
+    assert(piece_move(&b, &p, -1, 0) == BRAIN_OK);
+  assert(p.col == 0);
+  assert(piece_move(&b, &p, -1, 0) == BRAIN_BLOCKED);
+  assert(p.col == 0); // unchanged on block
+
+  for (int i = 0; i < 6; i++)
+    assert(piece_move(&b, &p, 1, 0) == BRAIN_OK);
+  assert(p.col == 6);
+  assert(piece_move(&b, &p, 1, 0) == BRAIN_BLOCKED);
+  assert(p.col == 6);
+
+  for (int i = 0; i < 19; i++)
+    assert(piece_move(&b, &p, 0, 1) == BRAIN_OK);
+  assert(p.row == 18);
+  assert(piece_move(&b, &p, 0, 1) == BRAIN_BLOCKED);
+  assert(p.row == 18);
+
+  printf("PASS test_move_blocked_by_walls_and_floor\n");
+}
+
 int main(void) {
   test_spawn_all_types_valid();
   test_stamp_writes_cells();
+  test_move_blocked_by_walls_and_floor();
   return 0;
 }

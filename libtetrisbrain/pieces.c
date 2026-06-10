@@ -81,6 +81,15 @@ bool piece_is_valid(const board_t *b, const piece_t *p) {
   return true;
 }
 
+brain_result_t piece_move(const board_t *b, piece_t *p, int dcol, int drow) {
+  piece_t moved = *p;
+  moved.col += dcol;
+  moved.row += drow;
+  if (!piece_is_valid(b, &moved)) return BRAIN_BLOCKED;
+  *p = moved;
+  return BRAIN_OK;
+}
+
 void piece_stamp(board_t *b, const piece_t *p) {
   for (int i = 0; i < 4; i++) {
     int col = p->col + SHAPES[p->type][p->rotation][i].dcol;
