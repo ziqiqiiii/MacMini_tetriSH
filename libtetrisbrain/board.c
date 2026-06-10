@@ -15,6 +15,9 @@ cell_t board_get(const board_t *b, int col, int row) {
 }
 
 void board_inject_garbage(board_t *b, int lines, int hole_col) {
+  if (lines <= 0) return;
+  if (lines > BOARD_HEIGHT) lines = BOARD_HEIGHT;
+
   // shift everything up by `lines` rows (rows 0..lines-1 fall off the top)
   for (int row = 0; row < BOARD_HEIGHT - lines; row++)
     memcpy(&b->cells[row][0], &b->cells[row + lines][0],

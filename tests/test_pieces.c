@@ -157,6 +157,46 @@ void test_o_piece_rotate_is_noop(void) {
   printf("PASS test_o_piece_rotate_is_noop\n");
 }
 
+void test_invalid_type_rejected_safely(void) {
+  board_t b;
+  board_init(&b);
+  piece_t p = {(piece_type_t)99, 3, 0, 0}; // corrupted type, out of SHAPES range
+
+  assert(!piece_is_valid(&b, &p));
+
+  piece_stamp(&b, &p); // must not read OOB / must not touch the board
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++)
+      assert(board_get(&b, c, r).type == CELL_EMPTY);
+
+  piece_t before = p;
+  assert(piece_rotate(&b, &p, 1) == BRAIN_BLOCKED);
+  assert(p.type == before.type && p.col == before.col &&
+         p.row == before.row && p.rotation == before.rotation);
+
+  printf("PASS test_invalid_type_rejected_safely\n");
+}
+
+void test_invalid_rotation_rejected_safely(void) {
+  board_t b;
+  board_init(&b);
+  piece_t p = {PIECE_T, 3, 0, 99}; // corrupted rotation, out of SHAPES range
+
+  assert(!piece_is_valid(&b, &p));
+
+  piece_stamp(&b, &p); // must not read OOB / must not touch the board
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++)
+      assert(board_get(&b, c, r).type == CELL_EMPTY);
+
+  piece_t before = p;
+  assert(piece_rotate(&b, &p, 1) == BRAIN_BLOCKED);
+  assert(p.type == before.type && p.col == before.col &&
+         p.row == before.row && p.rotation == before.rotation);
+
+  printf("PASS test_invalid_rotation_rejected_safely\n");
+}
+
 int main(void) {
   test_spawn_all_types_valid();
   test_stamp_writes_cells();
@@ -166,5 +206,7 @@ int main(void) {
   test_i_piece_wall_kick();
   test_rotate_blocked_returns_blocked();
   test_o_piece_rotate_is_noop();
+  test_invalid_type_rejected_safely();
+  test_invalid_rotation_rejected_safely();
   return 0;
 }

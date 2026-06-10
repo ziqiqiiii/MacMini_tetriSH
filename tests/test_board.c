@@ -72,11 +72,63 @@ void test_inject_garbage_hole_is_empty(void) {
   printf("PASS test_inject_garbage_hole_is_empty\n");
 }
 
+void test_inject_garbage_zero_lines_is_noop(void) {
+  board_t b, before;
+  board_init(&b);
+  board_set(&b, 4, 5, (cell_t){CELL_FILLED, 2});
+  board_copy(&before, &b);
+
+  board_inject_garbage(&b, 0, 3);
+
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++) {
+      assert(board_get(&b, c, r).type == board_get(&before, c, r).type);
+      assert(board_get(&b, c, r).color == board_get(&before, c, r).color);
+    }
+  printf("PASS test_inject_garbage_zero_lines_is_noop\n");
+}
+
+void test_inject_garbage_negative_lines_is_noop(void) {
+  board_t b, before;
+  board_init(&b);
+  board_set(&b, 4, 5, (cell_t){CELL_FILLED, 2});
+  board_copy(&before, &b);
+
+  board_inject_garbage(&b, -3, 3);
+
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++) {
+      assert(board_get(&b, c, r).type == board_get(&before, c, r).type);
+      assert(board_get(&b, c, r).color == board_get(&before, c, r).color);
+    }
+  printf("PASS test_inject_garbage_negative_lines_is_noop\n");
+}
+
+void test_inject_garbage_more_than_height_caps(void) {
+  board_t b;
+  board_init(&b);
+  board_set(&b, 4, 5, (cell_t){CELL_FILLED, 2}); // pre-existing block
+
+  board_inject_garbage(&b, BOARD_HEIGHT + 5, 3); // request more lines than exist
+
+  for (int r = 0; r < BOARD_HEIGHT; r++)
+    for (int c = 0; c < BOARD_WIDTH; c++) {
+      if (c == 3)
+        assert(board_get(&b, c, r).type == CELL_EMPTY);
+      else
+        assert(board_get(&b, c, r).type == CELL_GARBAGE);
+    }
+  printf("PASS test_inject_garbage_more_than_height_caps\n");
+}
+
 int main(void) {
   test_init_empty();
   test_out_of_bounds_is_solid();
   test_inject_garbage_bottom_rows();
   test_inject_garbage_shifts_existing_blocks();
   test_inject_garbage_hole_is_empty();
+  test_inject_garbage_zero_lines_is_noop();
+  test_inject_garbage_negative_lines_is_noop();
+  test_inject_garbage_more_than_height_caps();
   return 0;
 }
