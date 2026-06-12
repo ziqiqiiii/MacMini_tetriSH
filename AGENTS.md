@@ -125,64 +125,63 @@ Same pattern for `chatd`. `marketd` replaces `ticker_thread` with `event_consume
 
 ---
 
-## Commenting — mandatory standards
+## Commenting — short, useful, checkoff-ready
 
-The live checkoff Q&A can ask about **any line of submitted code**. Every non-trivial piece of code needs a comment that answers the Q&A question before the instructor asks it.
+The live checkoff Q&A can ask about **any line of submitted code**. Comments should be short enough that teammates will read them, but specific enough to answer "why is this here?" quickly.
 
-### Every file needs a header comment
+Use style already in `libtetrisbrain/board.c` and `libtetrisbrain/pieces.c`:
 
-```c
-/*
- * tetrisd/ticker.c — room ticker thread
- *
- * One ticker_thread per active room. Wakes at TICK_HZ, locks room->mutex,
- * calls brain_tick() for gravity/line clears, injects Battle Royale garbage
- * from the POSIX mq, broadcasts STATE to all clients.
- *
- * Locking: holds room->mutex for the full tick except during send() calls.
- * Never holds room->mutex while blocked on any syscall.
- */
-```
+- Comment non-obvious rules, edge cases, data tables, IPC choices, locking choices, and failure behavior.
+- Prefer 1-4 line comments near code they explain.
+- Explain intent and systems reason, not syntax.
+- Do not add banner comments to every small helper if code is obvious.
+- Add bigger comments only for dense tables, protocols, thread loops, or lock/IPC code.
 
-### Every non-trivial function needs a header comment
+Good examples:
 
 ```c
-/*
- * session_handshake_server() — server side of the 7-step libtetrissh handshake
- *
- * Steps: recv nonce → send cert → sign nonce (RSA-PSS) → send sig →
- *        recv RSA-OAEP wrapped AES-256 key → populate sess → encrypted from here.
- *
- * Returns 0 on success, -1 on failure (cleans up all state before returning).
- * Thread safety: per-connection, no shared state accessed.
- */
+return (cell_t){CELL_FILLED, 0}; // out of bounds = solid wall
 ```
 
-### Inline comments — write them when a reader could ask "why?"
+```c
+// shift everything up by `lines` rows (rows 0..lines-1 fall off the top)
+```
+
+```c
+// A corrupted piece_t (e.g. from a malformed network message) could carry a
+// type/rotation outside the SHAPES/KICK_TRANSITION tables; guard every entry
+// point that indexes those tables by p->type/p->rotation.
+```
+
+```c
+// Wall kicks: when a rotation's naive shape would overlap a wall, floor, or
+// existing block, SRS retries with a small set of (dcol,drow) offsets applied
+// to the *new* (post-rotation) shape, in order, until one fits.
+```
+
+For lock and IPC code, always state blocking reason:
 
 ```c
 pthread_mutex_unlock(&room->mutex);
-/* release before send() — never hold room->mutex across blocking I/O.
- * TCP backpressure on a slow client would stall the whole room ticker. */
+/* release before send(): TCP backpressure on one slow client must not stall
+ * the whole room ticker. */
+```
 
-if (mq_send(br_mq, (char *)&ev, sizeof(ev), 0) == -1) {
-    /* O_NONBLOCK: queue full → drop the garbage event rather than
-     * blocking the game loop. Drop is counted in room->stats.garbage_drops. */
-    room->stats.garbage_drops++;
+```c
+if (sendto(fd, &ev, sizeof(ev), MSG_DONTWAIT, addr, addrlen) == -1) {
+    /* DGRAM socket full/missing: social events are best-effort, so log/drop
+     * instead of blocking the game loop. */
+    stats->event_drops++;
 }
 ```
 
-### AI-generated code comment
+### AI-assisted code comments
 
-Any function substantially written by an AI assistant must include:
+If an AI assistant writes a non-trivial function, add one short comment near function or tricky block:
 
 ```c
-/* NOTE: AI-assisted (Claude). Reviewed and understood by <name> before merge.
- * Q&A prep:
- *   - <what this function does and why it's here>
- *   - <which mutex is held on entry, what it protects>
- *   - <what happens when it fails / what is deliberately dropped>
- */
+/* AI-assisted: validates network-derived piece fields before table lookup.
+ * Failure returns BRAIN_BLOCKED so malformed input cannot index past SHAPES. */
 ```
 
 ---
